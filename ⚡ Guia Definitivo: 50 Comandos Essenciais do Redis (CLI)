@@ -1,0 +1,94 @@
+# ⚡ Guia Definitivo: 50 Comandos Essenciais do Redis (CLI)
+
+O `redis-cli` é a interface de linha de comando para interagir com o servidor Redis. Lembre-se: no Redis, tudo gira em torno de **Chaves**.
+
+---
+
+## 🔑 1. Operações Básicas (Strings & Chaves)
+| Comando | Descrição |
+| :--- | :--- |
+| `SET chave valor` | Define o valor de uma chave |
+| `GET chave` | Retorna o valor de uma chave |
+| `DEL chave` | Remove uma chave específica |
+| `EXISTS chave` | Verifica se uma chave existe (1 se sim, 0 se não) |
+| `EXPIRE chave 60` | Define um tempo de vida (TTL) em segundos para a chave |
+| `TTL chave` | Consulta quanto tempo falta para a chave expirar |
+| `PERSIST chave` | Remove o tempo de expiração de uma chave |
+| `INCR chave` | Incrementa um valor numérico em 1 |
+| `DECR chave` | Decrementa um valor numérico em 1 |
+| `INCRBY chave 10` | Incrementa o valor pela quantidade especificada |
+| `MSET c1 v1 c2 v2` | Define múltiplas chaves e valores de uma vez |
+| `MGET c1 c2` | Retorna os valores de múltiplas chaves |
+| `APPEND chave "texto"` | Adiciona um texto ao final do valor atual da chave |
+
+---
+
+## 📋 2. Listas (Lists)
+*Ordenadas pela ordem de inserção (útil para filas).*
+| Comando | Descrição |
+| :--- | :--- |
+| `LPUSH lista valor` | Adiciona um elemento no início (esquerda) da lista |
+| `RPUSH lista valor` | Adiciona um elemento no final (direita) da lista |
+| `LPOP lista` | Remove e retorna o primeiro elemento da lista |
+| `RPOP lista` | Remove e retorna o último elemento da lista |
+| `LRANGE lista 0 -1` | Retorna todos os elementos de uma lista |
+| `LLEN lista` | Retorna o tamanho da lista |
+| `LINDEX lista 2` | Obtém o elemento em um índice específico |
+| `LTRIM lista 0 10` | Corta a lista para manter apenas o intervalo especificado |
+
+---
+
+## 🗃️ 3. Hashes (Objetos)
+*Ideal para armazenar objetos como perfis de usuários.*
+| Comando | Descrição |
+| :--- | :--- |
+| `HSET user:1 nome "Leo"` | Define um campo em um hash |
+| `HGET user:1 nome` | Retorna o valor de um campo do hash |
+| `HGETALL user:1` | Retorna todos os campos e valores do hash |
+| `HDEL user:1 campo` | Remove um campo específico do hash |
+| `HEXISTS user:1 campo` | Verifica se um campo existe no hash |
+| `HKEYS user:1` | Retorna apenas os nomes de todos os campos |
+| `HVALS user:1` | Retorna apenas os valores de todos os campos |
+| `HLEN user:1` | Retorna a quantidade de campos no hash |
+
+---
+
+## 🔢 4. Conjuntos (Sets & Sorted Sets)
+*Sets não permitem valores duplicados.*
+| Comando | Descrição |
+| :--- | :--- |
+| `SADD conjunto valor` | Adiciona um elemento ao conjunto |
+| `SREM conjunto valor` | Remove um elemento do conjunto |
+| `SMEMBERS conjunto` | Lista todos os elementos do conjunto |
+| `SISMEMBER conjunto v` | Verifica se um valor pertence ao conjunto |
+| `SUNION c1 c2` | Retorna a união de dois conjuntos |
+| `SINTER c1 c2` | Retorna a interseção de dois conjuntos |
+| `ZADD ranking 100 u1` | Adiciona ao Sorted Set com um Score (pontuação) |
+| `ZRANGE ranking 0 -1` | Lista elementos do Sorted Set pelo Score (crescente) |
+| `ZREVRANGE ranking 0 1` | Retorna o líder (maior Score) |
+
+---
+
+## 📢 5. Publish/Subscribe (Mensageria)
+| Comando | Descrição |
+| :--- | :--- |
+| `SUBSCRIBE canal` | Inscreve o cliente em um canal para receber mensagens |
+| `PUBLISH canal "msg"` | Envia uma mensagem para todos os inscritos no canal |
+| `UNSUBSCRIBE canal` | Cancela a inscrição em um canal |
+| `PSUBSCRIBE padrao*` | Se inscreve em canais usando padrões (ex: noticias:*) |
+
+---
+
+## ⚙️ 6. Administração e Diagnóstico
+| Comando | Descrição |
+| :--- | :--- |
+| `PING` | Verifica se o servidor está ativo (responde PONG) |
+| `INFO` | Retorna estatísticas e informações do servidor |
+| `DBSIZE` | Retorna o número total de chaves no banco atual |
+| `SELECT 1` | Muda para um banco de dados específico (padrão é 0 a 15) |
+| `FLUSHDB` | Apaga todas as chaves do banco de dados ATUAL |
+| `FLUSHALL` | Apaga TODAS as chaves de todos os bancos de dados |
+| `SAVE` | Força a gravação dos dados em disco (síncrono) |
+| `MONITOR` | Exibe em tempo real todos os comandos recebidos pelo servidor |
+| `CONFIG GET *` | Lê as configurações de tempo de execução do Redis |
+| `SCAN 0` | Itera sobre as chaves sem bloquear o servidor (melhor que `KEYS *`) |
