@@ -1,0 +1,130 @@
+# Guia Completo: Boas Práticas para Desenvolvimento Java e Microsserviços
+
+Construir microsserviços robustos em Java exige mais do que apenas saber a sintaxe da linguagem ou as anotações do Spring Boot. Trata-se de projetar sistemas que sejam resilientes, fáceis de manter, escaláveis e observáveis.
+
+Abaixo, apresento um guia estruturado com as principais boas práticas divididas por áreas de foco.
+
+---
+
+## Capítulo 1: Princípios de Arquitetura (System Design)
+
+A fundação de um bom ecossistema de microsserviços começa antes mesmo de escrever a primeira linha de código.
+
+* **The Twelve-Factor App:** Siga os 12 fatores para aplicações nativas da nuvem. Os pontos cruciais incluem externalizar configurações (usando Spring Cloud Config ou variáveis de ambiente), tratar logs como fluxos de eventos e garantir que os serviços sejam *stateless* (sem estado).
+* **Serviços Autônomos (Stateless):** Nunca armazene o estado da sessão do usuário na memória do microsserviço (como o antigo `HttpSession`). O estado deve ser mantido no cliente (via tokens JWT) ou em um cache distribuído (como Redis).
+* **Alta Coesão e Baixo Acoplamento:** Um microsserviço deve fazer apenas uma coisa e fazê-la bem (Single Responsibility Principle aplicado à arquitetura). Se você precisa alterar três serviços diferentes para lançar uma única nova feature, seus serviços estão altamente acoplados (um monólito distribuído).
+
+---
+
+## Capítulo 2: Boas Práticas de Código em Java Moderno
+
+O ecossistema Java evoluiu muito. Escrever código "estilo Java 8" em versões mais recentes desperdiça recursos valiosos da linguagem.
+
+* **Priorize a Imutabilidade:** Use `Records` (introduzidos no Java 14/16) para DTOs (Data Transfer Objects), comandos e eventos. Eles reduzem o *boilerplate* e garantem que os dados não sejam alterados acidentalmente em trânsito.
+* **Evite o `NullPointerException`:** Retorne `Optional<T>` em métodos que podem não encontrar um valor (especialmente em Repositórios e chamadas de banco de dados). Evite passar `Optional` como parâmetro de método; use-o estritamente como tipo de retorno.
+* **Tratamento Global de Exceções:** Não espalhe blocos `try/catch` pelos seus *Controllers*. Use `@RestControllerAdvice` no Spring Boot para capturar exceções de domínio e traduzi-las em respostas HTTP padronizadas (como a especificação RFC 7807 - *Problem Details for HTTP APIs*).
+* **Injeção de Dependência via Construtor:** Evite usar `@Autowired` diretamente nos campos (`Field Injection`). Injetar via construtor facilita a criação de testes unitários com *Mocks* e garante que a classe não seja instanciada com dependências faltando.
+
+---
+
+## Capítulo 3: Gerenciamento de Dados e Persistência
+
+Em sistemas distribuídos, os dados são o maior desafio. O compartilhamento de bancos de dados cria gargalos e acoplamento.
+
+* **Database per Service:** Cada microsserviço deve ser o único dono do seu banco de dados. Se o "Serviço A" precisa dos dados do "Serviço B", ele deve pedir via API ou consumindo eventos, nunca acessando o banco do B diretamente.
+* **Persistência Poliglota:** Escolha a ferramenta certa para o trabalho. Você pode usar um banco relacional tradicional (SQL) para sistemas de faturamento e transações complexas, e optar por um banco NoSQL orientado a documentos (como o Firestore ou MongoDB) para gerenciar sistemas de configuração de produtos, catálogos ou parâmetros dinâmicos onde a flexibilidade de esquema (coleções independentes) é essencial.
+* **Versionamento de Banco de Dados:** Nunca altere o esquema do banco de dados manualmente em produção. Use ferramentas de migração como **Flyway** ou **Liquibase** para que a evolução do banco seja versionada junto com o código Java.
+
+---
+
+## Capítulo 4: Comunicação e Integração
+
+A rede não é confiável. Assumir que uma chamada HTTP sempre funcionará é um erro crítico.
+
+* **Comunicação Assíncrona como Padrão:** Sempre que possível, prefira a comunicação baseada em eventos (usando Kafka, RabbitMQ ou Pub/Sub). Isso desacopla os serviços; se o serviço de destino estiver fora do ar, a mensagem fica na fila e é processada quando ele voltar.
+* **Timeouts e Retries:** Configure *timeouts* explícitos em todos os clientes HTTP (como `RestTemplate`, `WebClient` ou `FeignClient`). Um serviço lento é pior do que um serviço fora do ar. Implemente políticas de *Retry* (tentativas) apenas para operações idempotentes (aquelas que podem ser repetidas sem causar efeitos colaterais, como requisições `GET`).
+* **Idempotência:** Garanta que suas APIs de escrita (`POST`, `PUT`) sejam idempotentes. Se um cliente enviar a mesma requisição de criação de recurso duas vezes (devido a uma falha de rede), o sistema não deve criar o recurso duas vezes. Use chaves de idempotência (ex: `Idempotency-Key` no header HTTP).
+
+---
+
+## Capítulo 5: Observabilidade e Segurança
+
+Quando um erro ocorre em um monólito, você olha o stack trace. Quando ocorre em uma arquitetura com 20 microsserviços, você precisa de observabilidade.
+
+* **Distributed Tracing (Rastreamento Distribuído):** Ao receber uma requisição inicial, gere um `Trace ID` único e propague-o no *header* HTTP para todas as chamadas subsequentes e eventos de mensageria. Ferramentas como OpenTelemetry, Jaeger ou Zipkin permitem visualizar o caminho completo da requisição pela arquitetura.
+* **Logs Estruturados:** Em vez de imprimir texto livre (`log.info("Usuário {} criado", id)`), grave os logs no formato JSON. Isso permite que agregadores de log (ELK Stack, Datadog) filtrem e analisem os dados com extrema velocidade.
+* **Health Checks e Métricas:** Todo microsserviço deve expor *endpoints* de integridade (ex: `/actuator/health` no Spring Boot) para que o orquestrador (como o Kubernetes) saiba se deve reiniciar o pod. Exponha métricas de negócio e de JVM usando Prometheus/Grafana.
+---
+# Capítulo 6: Observabilidade Profunda com Trace ID e Rastreamento Distribuído
+
+Quando um sistema monolítico falha, você tem um único arquivo de log e uma *stack trace* (pilha de execução) clara para investigar. Em uma arquitetura distribuída, uma única ação do usuário pode disparar uma reação em cadeia, passando por três, cinco ou dezenas de microsserviços diferentes. Se a requisição falhar no meio do caminho, procurar o erro lendo logs isolados de cada serviço é como procurar uma agulha em um palheiro.
+
+É exatamente esse problema que o **Rastreamento Distribuído (Distributed Tracing)** e o **Trace ID** resolvem.
+
+## Conceitos Fundamentais
+
+Para entender o rastreamento, precisamos de dois conceitos-chave:
+
+* **Trace ID (ID de Rastreamento):** É um identificador global e único gerado no momento em que a requisição entra no seu sistema (geralmente no API Gateway). Esse ID é repassado (propagado) para **todos** os microsserviços subsequentes envolvidos naquela transação.
+* **Span ID (ID de Etapa):** Representa uma unidade de trabalho lógica individual dentro do Trace. Cada vez que um serviço processa algo, faz uma query no banco de dados ou chama outro serviço via HTTP/Mensageria, um novo Span ID é criado, mas sempre atrelado ao mesmo Trace ID pai.
+
+## O Trace ID na Prática: Um Cenário Real
+
+Imagine o fluxo de uma requisição em um sistema de configuração de produtos. Um cliente (ou front-end) solicita a montagem de um item customizado.
+
+A requisição entra no sistema e o seguinte fluxo ocorre:
+
+1. O **API Gateway** recebe a chamada HTTP, gera o `Trace ID: 8a3f91b2` e encaminha a requisição.
+2. O **Serviço de Catálogo** recebe a chamada (herdando o `Trace ID: 8a3f91b2`), processa regras de negócio e chama o serviço de configuração.
+3. O **Serviço de Configuração** (também com o `Trace ID: 8a3f91b2`) precisa ir ao banco de dados para validar as regras. Ele executa buscas em coleções separadas para os produtos e para os parâmetros de configuração no Firestore.
+
+Se ocorrer um timeout de 5 segundos durante a busca nas coleções do Firestore, o erro será estourado no Serviço de Configuração, mas o cliente receberá um erro 500 genérico do API Gateway.
+
+Sem um Trace ID, você teria que olhar os logs do Gateway, depois os logs do Catálogo, e depois adivinhar qual log de erro no Serviço de Configuração corresponde àquela requisição específica. **Com o Trace ID**, você simplesmente digita `8a3f91b2` na sua ferramenta de logs (como Kibana, Datadog ou Grafana Loki) e vê a história completa e linear da requisição, desde a entrada até a falha exata no banco de dados NoSQL.
+
+---
+
+## Como Implementar no Ecossistema Java (Spring Boot 3)
+
+No passado, utilizava-se o *Spring Cloud Sleuth*. A partir do Spring Boot 3, a observabilidade foi unificada através do **Micrometer Tracing**.
+
+A beleza dessa abordagem é que ela é praticamente *plug-and-play*. Ao adicionar as dependências corretas, o Spring Boot automaticamente:
+
+1. Gera os IDs.
+2. Injeta os IDs nos cabeçalhos HTTP (ex: `traceparent` no padrão W3C) usando o `RestTemplate` ou `WebClient`.
+3. Modifica o padrão de saída dos seus logs para incluir esses IDs.
+
+### 1. Dependências Necessárias (`pom.xml`)
+
+Para habilitar o rastreamento e exportar os dados para um sistema como o Zipkin ou Jaeger, você precisaria adicionar:
+
+```xml
+<dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-tracing-bridge-brave</artifactId>
+</dependency>
+
+<dependency>
+    <groupId>io.zipkin.reporter2</groupId>
+    <artifactId>zipkin-reporter-brave</artifactId>
+</dependency>
+
+```
+
+### 2. O Impacto nos Logs
+
+Com o Micrometer configurado, qualquer log simples que você escrever no seu código:
+
+```java
+log.info("Buscando parâmetros de configuração para o produto ID: {}", productId);
+
+```
+
+Será automaticamente formatado no console (ou no seu arquivo JSON de logs) no seguinte padrão:
+
+```text
+2026-02-21T11:45:12.345Z  INFO [product-config-service,8a3f91b2,a1b2c3d4] 12345 --- [nio-8080-exec-1] c.e.s.ProductService : Buscando parâmetros de configuração para o produto ID: 9981
+
+```
+
+Observe a estrutura entre colchetes `[Nome-do-Servico, Trace-ID, Span-ID]`. É isso que permite que os agregadores de log indexem e agrupem toda a jornada da requisição.
