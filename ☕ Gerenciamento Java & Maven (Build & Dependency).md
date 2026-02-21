@@ -14,6 +14,7 @@ O Maven é o padrão para projetos Java, e o `mvnw` (Wrapper) garante que o proj
 | Pular testes no Build | `mvn package -DskipTests` | `./mvnw package -DskipTests` |
 | Baixar Sources/Javadocs | `mvn dependency:sources` | `./mvnw dependency:sources` |
 | Atualizar dependências | `mvn clean install -U` | `./mvnw clean install -U` |
+| Adicionar dependências | `mvn quarkus:add-extension -Dextensions="quarkus-rest-client"` | `./mvnw quarkus:add-extension -Dextensions="quarkus-rest-client"`|
 
 ---
 
